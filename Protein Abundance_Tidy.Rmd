@@ -1,5 +1,5 @@
 ---
-title: "interview practice"
+title: "protein abundance_tidy"
 author: "Stella Huang"
 date: "9/27/2018"
 output: html_document
