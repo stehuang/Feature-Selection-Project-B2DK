@@ -1,0 +1,127 @@
+---
+title: "Protein_Iso"
+author: "Stella Huang"
+date: "10/23/2018"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(mice)
+library(lattice)
+```
+
+```{r}
+protein_id <- read.csv("protein_id.csv")
+protein_id
+iso_group <-protein_id[grep("iso", protein_id$sample),]
+iso_group
+
+# copying over data from day 0
+ctrl_group <-protein_id[grep("ctrl", protein_id$sample),]
+ctrl_group
+iso_day0 <-ctrl_group[seq(1,36,by=7),] %>% select(-c(X, sample))
+
+
+
+# group by time points
+# day 1
+iso_day1 <-iso_group[seq(1,31,by=6),] %>% select(-c(X, sample))
+iso_day1
+# day 3
+iso_day3 <-iso_group[seq(2,32,by=6),] %>% select(-c(X, sample))
+# day 5
+iso_day5 <-iso_group[seq(3,33,by=6),] %>% select(-c(X, sample))
+# day 7
+iso_day7 <-iso_group[seq(4,34,by=6),] %>% select(-c(X, sample))
+# day 10
+iso_day10 <-iso_group[seq(5,35,by=6),] %>% select(-c(X, sample))
+# day 14
+iso_day14 <-iso_group[seq(6,36,by=6),] %>% select(-c(X, sample))
+
+
+avg_protein_iso <- cbind(as.data.frame(colMeans(iso_day0)), as.data.frame(colMeans(iso_day1)),as.data.frame(colMeans(iso_day3)),as.data.frame(colMeans(iso_day5)),as.data.frame(colMeans(iso_day7)),as.data.frame(colMeans(iso_day10)),as.data.frame(colMeans(iso_day14)))
+names(avg_protein_iso) <- c("day_0","day_1","day_3","day_5","day_7","day_10","day_14")
+avg_protein_iso
+
+
+sum(is.na(avg_protein_iso))/(dim(avg_protein_iso)[1]*dim(avg_protein_iso)[2])*100
+
+write.csv(avg_protein_iso,file="protein_iso.csv")
+```
+
+
+
+
+
+
+# filter out rows with >3 NA
+
+```{r}
+na_count_iso <- as.data.frame(rowSums(is.na(avg_protein_iso)))
+colnames(na_count_iso) <- "na_count"
+filtered_iso <- avg_protein_iso[which(na_count_iso$na_count < 4),]
+
+# get average of each row
+row_mean <-rowMeans(filtered_iso,na.rm=TRUE)
+
+# replace NA with row average
+# loop through row
+for(i in 1:dim(filtered_iso)[1]){
+  # loop through col
+  for(j in 1:dim(filtered_iso)[2])
+    if(is.na(filtered_iso[i,j]) == TRUE){
+      filtered_iso[i,j] <- row_mean[i]
+    }
+}
+
+filtered_iso
+
+
+# variance of filtered_ctrl dataset
+sum(apply(filtered_iso,1,var))/dim(filtered_iso)[1]
+
+```
+
+
+
+```{r}
+# impute missing data
+imputed_data_iso <- mice(avg_protein_iso, m=5, maxit = 10, method = 'pmm', seed = 500)
+summary(imputed_data_iso)
+
+# save the 5 datasets with imputed values
+mice_iso_1 <- complete(imputed_data_iso,1)
+mice_iso_2 <- complete(imputed_data_iso,2)
+mice_iso_3 <- complete(imputed_data_iso,3)
+mice_iso_4 <- complete(imputed_data_iso,4)
+mice_iso_5 <- complete(imputed_data_iso,5)
+
+write.csv(mice_iso_1, "mice_iso_1.csv")
+write.csv(mice_iso_2, "mice_iso_2.csv")
+write.csv(mice_iso_3, "mice_iso_3.csv")
+write.csv(mice_iso_4, "mice_iso_4.csv")
+write.csv(mice_iso_5, "mice_iso_5.csv")
+
+mice_iso_1
+
+# variance of mice_iso_1 dataset
+sum(apply(mice_iso_1,1,var))/dim(mice_iso_1)[1]
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

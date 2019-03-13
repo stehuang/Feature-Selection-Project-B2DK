@@ -1,0 +1,287 @@
+
+
+## loading libraries
+```{r}
+library(mice)
+library(tidyverse)
+library(lattice)
+
+```
+
+
+```{r}
+# load in data
+protein_id <- read.delim("protein_id.txt")
+# select relevant columns
+protein_id <- protein_id %>% select(c("Locus","sample","strain","treatment","day","Uniprot","NSAF"))
+head(protein_id)
+
+# convert to dataframe format
+protein_id <- as.data.frame(protein_id)
+#delete locus with "reverse"
+protein_id <-protein_id[-grep("Reverse", protein_id$Locus),]
+protein_id <- protein_id %>% select(-"Locus")
+write.csv(protein_id,"protein_id_mice.csv")
+
+```
+
+
+
+```{r}
+# spreads dataset along Uniprof
+# row: sample
+# columns: individual proteins
+# matrix entries: NSAF
+protein_id_1 <- read.csv("protein_id_mice.csv")
+protein_id_1 <- protein_id %>% select(-"sample")
+protein_id_1
+
+# protein_id_1 <- protein_id_1 %>% select(c("strain","day","treatment","Uniprot","NSAF")) %>% spread("Uniprot","NSAF")
+
+ctrl_day0 <- protein_id_1[which(protein_id_1$day==0),]
+ctrl_day0[which(ctrl_day0$treatment=="ctrl"),] 
+protein_id_1
+
+#write.csv(protein_id_1, "protein_id_new.csv")
+```
+
+
+
+
+
+## selecting proteins present in both control & iso
+```{r}
+# control
+unfiltered_ctrl <- read.csv("protein_control.csv")
+unfiltered_ctrl
+na_count_ctrl <- as.data.frame(rowSums(is.na(unfiltered_ctrl)))
+colnames(na_count_ctrl) <- "na_count"
+na_count_ctrl
+# get rows with at least 3 values
+filtered_ctrl <-avg_protein_ctrl[which(na_count_ctrl$na_count < 5),]
+filtered_ctrl
+
+# iso
+unfiltered_iso <- read.csv("protein_iso.csv")
+unfiltered_iso
+na_count_iso <- as.data.frame(rowSums(is.na(unfiltered_iso)))
+colnames(na_count_iso) <- "na_count"
+na_count_iso
+# get rows with at least 3 values
+filtered_iso <-avg_protein_iso[which(na_count_iso$na_count < 5),]
+filtered_iso
+
+ctrl_names <- rownames(filtered_ctrl)
+valid_proteins <- filtered_ctrl[which(ctrl_names %in% rownames(filtered_iso)),]
+valid_proteins
+
+```
+
+
+
+
+## spreading the data
+```{r}
+curr <- read.csv("protein_id_mice_new.csv")
+curr
+protein_spreaded <- curr %>% select(c("strain","day","treatment","Uniprot","NSAF")) %>% spread("day","NSAF")
+colnames(protein_spreaded) <- c("strain","treatment","Uniprot","day_0","day_1","day_3","day_5","day_7","day_10","day_14")
+protein_spreaded
+```
+
+
+## keeping proteins that are present in both treatment groups and have at least 3 samples
+```{r}
+# protein_spreaded: master list
+# valid_proteins: proteins in both list
+
+head(protein_spreaded[which(protein_spreaded$Uniprot %in% rownames(valid_proteins)),])
+protein_filtered <- protein_spreaded[which(protein_spreaded$Uniprot %in% rownames(valid_proteins)),]
+protein_filtered
+
+#note: most proteins have pretty complete values
+```
+
+
+
+## impute missing values
+```{r}
+
+  
+filtered_modified<-protein_filtered %>% select(-c(strain,treatment,Uniprot))
+imputed_full_data <- mice(filtered_modified, m=5, maxit = 10, method = 'pmm', seed = 500)
+summary(imputed_full_data)
+imputed_full_data
+
+# save the 5 datasets with imputed values
+final_1 <- mice::complete(imputed_full_data,1)
+final_2 <- mice::complete(imputed_full_data,2)
+final_3 <- mice::complete(imputed_full_data,3)
+final_4 <- mice::complete(imputed_full_data,4)
+final_5 <- mice::complete(imputed_full_data,5)
+
+
+
+# variance of dataset: 0.2464398
+(sum(apply(final_1,1,var)))/(dim(final_1)[1])
+
+# formatting the datasets
+final_1 <- cbind(protein_filtered$strain,protein_filtered$treatment,protein_filtered$Uniprot,final_1)
+colnames(final_1) <- c("strain","treatment","Uniprot","day_0","day_1","day_3","day_5","day_7","day_10","day_14")
+
+final_2 <- cbind(protein_filtered$strain,protein_filtered$treatment,protein_filtered$Uniprot,final_2)
+colnames(final_2) <- c("strain","treatment","Uniprot","day_0","day_1","day_3","day_5","day_7","day_10","day_14")
+
+final_3 <- cbind(protein_filtered$strain,protein_filtered$treatment,protein_filtered$Uniprot,final_3)
+colnames(final_3) <- c("strain","treatment","Uniprot","day_0","day_1","day_3","day_5","day_7","day_10","day_14")
+
+final_4 <- cbind(protein_filtered$strain,protein_filtered$treatment,protein_filtered$Uniprot,final_4)
+colnames(final_4) <- c("strain","treatment","Uniprot","day_0","day_1","day_3","day_5","day_7","day_10","day_14")
+
+final_5 <- cbind(protein_filtered$strain,protein_filtered$treatment,protein_filtered$Uniprot,final_5)
+colnames(final_5) <- c("strain","treatment","Uniprot","day_0","day_1","day_3","day_5","day_7","day_10","day_14")
+
+
+# final datasets
+final_1
+final_2
+final_3
+final_4
+final_5
+
+
+
+```
+
+
+
+
+```{r}
+# reshaping dataset 1
+final_1 <- final_1 %>% select("strain","treatment","Uniprot","day_0","day_1","day_3","day_5","day_7","day_10","day_14") %>% gather("day_0","day_1","day_3","day_5","day_7","day_10","day_14",key="day",value="NSAF")
+
+# changing names
+final_1
+final_1$day[final_1$day == "day_0"] <- "0"
+final_1$day[final_1$day == "day_1"] <- "1"
+final_1$day[final_1$day == "day_3"] <- "3"
+final_1$day[final_1$day == "day_5"] <- "5"
+final_1$day[final_1$day == "day_7"] <- "7"
+final_1$day[final_1$day == "day_10"] <- "10"
+final_1$day[final_1$day == "day_14"] <- "14"
+final_1$day <- as.integer(final_1$day)
+
+# spreading by proteins; row as days
+final_1 <- final_1 %>% spread("Uniprot","NSAF")
+final_1
+
+write.csv(final_1,"final_1.csv")
+
+
+
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+
+# reshaping dataset 2
+final_2 <- final_2 %>% select("strain","treatment","Uniprot","day_0","day_1","day_3","day_5","day_7","day_10","day_14") %>% gather("day_0","day_1","day_3","day_5","day_7","day_10","day_14",key="day",value="NSAF")
+
+# changing names
+final_2
+final_2$day[final_2$day == "day_0"] <- "0"
+final_2$day[final_2$day == "day_1"] <- "1"
+final_2$day[final_2$day == "day_3"] <- "3"
+final_2$day[final_2$day == "day_5"] <- "5"
+final_2$day[final_2$day == "day_7"] <- "7"
+final_2$day[final_2$day == "day_10"] <- "10"
+final_2$day[final_2$day == "day_14"] <- "14"
+final_2$day <- as.integer(final_2$day)
+
+# spreading by proteins; row as days
+final_2 <- final_2 %>% spread("Uniprot","NSAF")
+final_2
+
+write.csv(final_2,"final_2.csv")
+
+
+
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+
+# reshaping dataset 3
+final_3 <- final_3 %>% select("strain","treatment","Uniprot","day_0","day_1","day_3","day_5","day_7","day_10","day_14") %>% gather("day_0","day_1","day_3","day_5","day_7","day_10","day_14",key="day",value="NSAF")
+
+# changing names
+final_3
+final_3$day[final_3$day == "day_0"] <- "0"
+final_3$day[final_3$day == "day_1"] <- "1"
+final_3$day[final_3$day == "day_3"] <- "3"
+final_3$day[final_3$day == "day_5"] <- "5"
+final_3$day[final_3$day == "day_7"] <- "7"
+final_3$day[final_3$day == "day_10"] <- "10"
+final_3$day[final_3$day == "day_14"] <- "14"
+final_3$day <- as.integer(final_3$day)
+
+# spreading by proteins; row as days
+final_3 <- final_3 %>% spread("Uniprot","NSAF")
+final_3
+
+write.csv(final_3,"final_3.csv")
+
+
+
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+
+# reshaping dataset 4
+final_4 <- final_4 %>% select("strain","treatment","Uniprot","day_0","day_1","day_3","day_5","day_7","day_10","day_14") %>% gather("day_0","day_1","day_3","day_5","day_7","day_10","day_14",key="day",value="NSAF")
+
+# changing names
+final_4
+final_4$day[final_4$day == "day_0"] <- "0"
+final_4$day[final_4$day == "day_1"] <- "1"
+final_4$day[final_4$day == "day_3"] <- "3"
+final_4$day[final_4$day == "day_5"] <- "5"
+final_4$day[final_4$day == "day_7"] <- "7"
+final_4$day[final_4$day == "day_10"] <- "10"
+final_4$day[final_4$day == "day_14"] <- "14"
+final_4$day <- as.integer(final_4$day)
+
+# spreading by proteins; row as days
+final_4 <- final_4 %>% spread("Uniprot","NSAF")
+final_4
+
+write.csv(final_4,"final_4.csv")
+
+
+
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+
+# reshaping dataset 5
+final_5 <- final_5 %>% select("strain","treatment","Uniprot","day_0","day_1","day_3","day_5","day_7","day_10","day_14") %>% gather("day_0","day_1","day_3","day_5","day_7","day_10","day_14",key="day",value="NSAF")
+
+# changing names
+final_5
+final_5$day[final_5$day == "day_0"] <- "0"
+final_5$day[final_5$day == "day_1"] <- "1"
+final_5$day[final_5$day == "day_3"] <- "3"
+final_5$day[final_5$day == "day_5"] <- "5"
+final_5$day[final_5$day == "day_7"] <- "7"
+final_5$day[final_5$day == "day_10"] <- "10"
+final_5$day[final_5$day == "day_14"] <- "14"
+final_5$day <- as.integer(final_5$day)
+
+# spreading by proteins; row as days
+final_5 <- final_5 %>% spread("Uniprot","NSAF")
+final_5
+
+write.csv(final_5,"final_5.csv")
+
+```
+
+
+
+
+
+resize to 78 samples in row, same columns, spread by protein, put all days in one col
+save into csv
+
+do it for all 5 sets
+
+
