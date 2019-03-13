@@ -1,0 +1,150 @@
+
+
+
+```{r}
+library(tidyverse)
+library(mice)
+library(lattice)
+```
+
+
+
+## finding the average NSAF values of proteins in controlled group
+```{r}
+protein_id <- read.csv("protein_id.csv")
+protein_id
+ctrl_group <-protein_id[grep("ctrl", protein_id$sample),]
+ctrl_group
+
+# group by time points
+# day 0
+ctrl_day0 <-ctrl_group[seq(1,36,by=7),] %>% select(-c(X, sample))
+ctrl_day0
+# day 1
+ctrl_day1 <-ctrl_group[seq(2,37,by=7),] %>% select(-c(X, sample))
+# day 3
+ctrl_day3 <-ctrl_group[seq(5,40,by=7),] %>% select(-c(X, sample))
+# day 5
+ctrl_day5 <-ctrl_group[seq(6,41,by=7),] %>% select(-c(X, sample))
+# day 7
+ctrl_day7 <-ctrl_group[seq(7,42,by=7),] %>% select(-c(X, sample))
+# day 10
+ctrl_day10 <-ctrl_group[seq(3,38,by=7),] %>% select(-c(X, sample))
+# day 14
+ctrl_day14 <-ctrl_group[seq(4,39,by=7),] %>% select(-c(X, sample))
+
+
+avg_protein_ctrl <- cbind(as.data.frame(colMeans(ctrl_day0)), as.data.frame(colMeans(ctrl_day1)),as.data.frame(colMeans(ctrl_day3)),as.data.frame(colMeans(ctrl_day5)),as.data.frame(colMeans(ctrl_day7)),as.data.frame(colMeans(ctrl_day10)),as.data.frame(colMeans(ctrl_day14)))
+names(avg_protein_ctrl) <- c("day_0","day_1","day_3","day_5","day_7","day_10","day_14")
+avg_protein_ctrl
+
+
+sum(is.na(avg_protein_ctrl))/(dim(avg_protein_ctrl)[1]*dim(avg_protein_ctrl)[2])*100
+
+write.csv(avg_protein_ctrl,file="protein_control.csv")
+```
+
+
+
+strains:
+aj, balbc, c57, cej, dba, fvb
+
+keep the ones with at least 4 time values in both files (if >1000)
+look for methods in r that can 
+replace NA values with mean
+calculate variance for each protein
+average variance of all proteins
+
+# filter out rows with >4 NA
+
+```{r}
+na_count_ctrl <- as.data.frame(rowSums(is.na(avg_protein_ctrl)))
+colnames(na_count_ctrl) <- "na_count"
+na_count_ctrl
+# get rows with at least 4 values
+filtered_ctrl <-avg_protein_ctrl[which(na_count_ctrl$na_count < 4),]
+filtered_ctrl
+# get average of each row
+row_mean <-rowMeans(filtered_ctrl,na.rm=TRUE)
+
+# replace NA with row average
+# loop through row
+for(i in 1:dim(filtered_ctrl)[1]){
+  # loop through col
+  for(j in 1:dim(filtered_ctrl)[2])
+    if(is.na(filtered_ctrl[i,j]) == TRUE){
+      filtered_ctrl[i,j] <- row_mean[i]
+    }
+}
+
+filtered_ctrl
+
+# variance of filtered_ctrl dataset: 0.0478332
+sum(apply(filtered_ctrl,1,var))/(dim(filtered_ctrl)[1])
+
+```
+
+
+
+
+```{r}
+avg_protein_ctrl
+# impute missing data
+imputed_data_ctrl <- mice(avg_protein_ctrl, m=5, maxit = 10, method = 'pmm', seed = 500)
+summary(imputed_data_ctrl)
+
+imputed_data_ctrl
+# save the 5 datasets with imputed values
+mice_ctrl_1 <- mice::complete(imputed_data_ctrl,1)
+mice_ctrl_2 <- mice::complete(imputed_data_ctrl,2)
+mice_ctrl_3 <- mice::complete(imputed_data_ctrl,3)
+mice_ctrl_4 <- mice::complete(imputed_data_ctrl,4)
+mice_ctrl_5 <- mice::complete(imputed_data_ctrl,5)
+
+write.csv(mice_ctrl_1, "mice_ctrl_1.csv")
+write.csv(mice_ctrl_2, "mice_ctrl_2.csv")
+write.csv(mice_ctrl_3, "mice_ctrl_3.csv")
+write.csv(mice_ctrl_4, "mice_ctrl_4.csv")
+write.csv(mice_ctrl_5, "mice_ctrl_5.csv")
+
+mice_ctrl_1
+
+# variance of mice_ctrl_1 dataset: 0.07275378
+sum(apply(mice_ctrl_1,1,var))/dim(mice_ctrl_1)[1]
+sum(apply(mice_ctrl_1,1,var))
+```
+
+
+
+
+multiple imputation
+impute multiple values (5 datasets)
+treating real values differently from imputed values
+
+
+consider proteins in both contrl and iso
+merge into original shape
+
+
+still keep treatment col
+strain/time/group
+
+go back to original dataset and remove the averaging strain value step
+select proteins present in 1) ctrl & iso 2) at least 3 and more
+don't separate by treatment because it's already separated for us
+
+so in mice, use logistic and poly for method to to imputation
+still copy day0 from control for iso
+
+
+col: group strain time points(7)
+
+for mice:
+group: logistic
+strain: poly
+time points: pmm
+
+
+
+
+
