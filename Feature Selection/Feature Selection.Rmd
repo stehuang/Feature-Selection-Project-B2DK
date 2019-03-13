@@ -1,0 +1,126 @@
+
+
+
+
+```{r}
+library(tidyverse)
+library(glmnet)
+library(stabs)
+library(lars)
+library("devtools")
+```
+
+
+# LASSO
+
+```{r}
+data <- read.csv("final_1.csv")
+data
+
+x <- model.matrix(treatment~., data)[,-c(0,1,2,3,4,5,6,7,8)]
+y <- data$treatment
+
+# LASSO with alpha=1
+set.seed(100)
+cv.lasso <- cv.glmnet(x, y, family='binomial', alpha=1, parallel=TRUE, standardize=TRUE)
+
+
+plot(cv.lasso)
+
+# plot(cv.lasso$glmnet.fit, xvar="lambda", label=TRUE)
+cat('Min Lambda: ', cv.lasso$lambda.min, '\n 1Sd Lambda: ', cv.lasso$lambda.1se)
+df_coef <- round(as.matrix(coef(cv.lasso, s=cv.lasso$lambda.min)), 3)
+
+# See all contributing variables
+df_coef[df_coef[, 1] != 0, ]
+
+
+# high pos or low negative implies the variable is more important
+```
+
+elastic net
+probelms with lasso
+
+#rfecv
+#elastic net: improved linear reg for lasso
+
+# elastic net balances LASSO and ridge penalties to prevent over-regularization, which causes under-predicting
+
+# ELASTIC NET with 0 < alpha < 1
+```{r}
+alpha <- seq(0.1,0.9,0.05)
+search <- foreach(i=alpha, .combine=rbind) %dopar% {
+  cv <- cv.glmnet(x, y, family="binomial", nfold=10, type.measure="deviance", paralle=TRUE, alpha=i)
+  data.frame(cvm = cv$cvm[cv$lambda == cv$lambda.1se], lambda.1se = cv$lambda.1se, alpha = i)
+}
+en.cv <- search[search$cvm == min(search$cvm),]
+en.md <- glmnet(x, y, family = "binomial", lambda = en.cv$lambda.1se, alpha = en.cv$alpha)
+
+features <- as.matrix(coef(en.md))
+#features
+
+row_sub = apply(features, 1, function(row) all(row !=0 ))
+#Subset as usual
+features[row_sub,]
+features[row_sub,0]
+```
+
+
+# compare with results from other file
+
+
+
+# ridge regression
+```{r}
+data <- read.csv("final_1.csv")
+data
+
+x <- model.matrix(treatment~., data)[,-c(0,1,2,3,4,5,6,7,8)]
+y <- data$treatment
+model.matrix(treatment~., data)
+x
+
+# fitting the ridge model
+# grid = 10^seq(10, -2, length = 100)
+# ridge_mod = glmnet(x, y, alpha = 0, lambda = grid)
+
+cv.out = cv.glmnet(x, y, family='binomial', alpha = 0) # Fit ridge regression model on training data
+bestlam = cv.out$lambda.min  # Select lamda that minimizes training MSE
+bestlam
+
+plot(cv.out)
+
+cv_lasso <- cv.glmnet(x, y, family='binomial', alpha = 0) # Fit ridge regression model on full dataset
+ridge_coef <- predict(cv_lasso, type = "coefficients", s = bestlam) # Display coefficients using lambda chosen by CV
+
+ridge_coef <- round(as.matrix(coef(cv_lasso, s=bestlam)), 3)
+ridge_coef <- ridge_coef[ridge_coef[, 1] != 0, ]
+ridge_coef
+dim(ridge_coef)
+```
+
+
+
+# Stability Selection
+```{r}
+data <- read.csv("final_1.csv")
+data
+
+x <- model.matrix(treatment~., data)[,-c(0,1,2,3,4,5,6,7,8)]
+# convert y to numeric values; 0 = ctrl, 1 = treatment
+y <- as.numeric(data$treatment)
+y <- y-1
+
+
+x <- data[,-c(0,1,2,3,4,5,6,7,8)]
+
+protein_sel <- stabsel(x, y, fitfun = glmnet.lasso, cutoff= 0.75, PFER=1)
+
+selected(protein_sel)
+
+data$treatment
+```
+
+
+
+

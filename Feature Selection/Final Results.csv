@@ -1,0 +1,34 @@
+Protein/Method,LASSO,Elastic Net,Stability Selection,Ridge,Linear SVC
+1,P27659,O70373     ,Q9D783,virtually all,P49312
+2,P56695,P27659     ,Q9D154,,O09161
+3,P63094 ,P42227     ,Q6PD03,,O88544
+4,P97447,P47753     ,Q61704,,P29699
+5,Q60936 ,P51660     ,Q61702,,P19783
+6,Q61702 ,P56695     ,Q60936,,P32020
+7,Q61704 ,P60710     ,P97447,,P07758
+8,Q6PD03 ,P63094     ,P63094,,Q8BGC4
+9,Q8BGB8,P70704     ,,,P58389
+10,Q8BGQ7,P97447     ,,,P24527
+11,Q9D154,Q60854     ,,,O54724 
+12,Q9D783,Q60936     ,,,
+13,Q9JIF9 ,Q61702     ,,,
+14,,Q61704     ,,,
+15,,Q64514     ,,,
+16,,Q6PD03     ,,,
+17,,Q6R0H7     ,,,
+18,,Q71FD7     ,,,
+19,,Q7M6Y3     ,,,
+20,,Q80Y14     ,,,
+21,,Q8BGQ7     ,,,
+22,,Q8BVZ1     ,,,
+23,,Q99JY0     ,,,
+24,,Q99K51     ,,,
+25,,Q9D154     ,,,
+26,,Q9D783     ,,,
+27,,Q9WVA4  ,,,
+,,,,,
+,,,,,
+* only proteins that appeared more than once were extracted for Linear SVC,,,,,
+,,,,,
+"try linear SVM with rfe, try 10 features, on entire dataset, run multiple times and see if there are reoccuring proteins",,,,,
+put more emphasis on elastic and stability selection bc they're advnaced version sof lasso,,,,,
